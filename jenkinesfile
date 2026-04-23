@@ -1,0 +1,72 @@
+pipeline {
+    agent any
+
+    environment {
+        PROJECT_ID = "your-project"
+        IMAGE_NAME = "my-app"
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        IMAGE = "gcr.io/${PROJECT_ID}/${IMAGE_NAME}:${IMAGE_TAG}"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/your-repo.git'
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                sh 'docker build -t $IMAGE .'
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                sh '''
+                gcloud auth configure-docker
+                docker push $IMAGE
+                '''
+            }
+        }
+
+        // 🔹 DEV Deployment (Auto)
+        stage('Deploy to DEV') {
+            steps {
+                sh '''
+                sed -i "s|IMAGE_PLACEHOLDER|$IMAGE|g" k8s/dev/deployment.yaml
+                kubectl apply -f k8s/dev/
+                '''
+            }
+        }
+
+        // 🔹 STAGING Deployment
+        stage('Deploy to STAGING') {
+            steps {
+                input message: "Deploy to STAGING?"
+                sh '''
+                sed -i "s|IMAGE_PLACEHOLDER|$IMAGE|g" k8s/staging/deployment.yaml
+                kubectl apply -f k8s/staging/
+                '''
+            }
+        }
+
+        // 🔹 PRODUCTION Deployment (Manual Approval)
+        stage('Deploy to PROD') {
+            steps {
+                input message: "Deploy to PRODUCTION?"
+                sh '''
+                sed -i "s|IMAGE_PLACEHOLDER|$IMAGE|g" k8s/prod/deployment.yaml
+                kubectl apply -f k8s/prod/
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh 'kubectl rollout status deployment/my-app'
+            }
+        }
+    }
+}
