@@ -23,3 +23,10 @@ spec:
                 name: jenkins-service
                 port:
                   number: 8080
+
+
+# 2. Create TLS Secret (SSL)
+# kubectl create secret tls jenkins-tls \
+#   --cert=cert.crt \
+#   --key=key.key \
+#   -n jenkins
